@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Chopped for Writers</title>
+  <style>
+    body {
+      font-family: Georgia, serif;
+      background-color: #f5f0e6;
+      text-align: center;
+      padding: 20px;
+    }
+
+    #basket {
+      font-size: 100px;
+      cursor: pointer;
+    }
+
+    .ingredient {
+      display: inline-block;
+      vertical-align: top;
+      background-color: white;
+      border: 2px solid black;
+      padding: 10px;
+      margin: 5px;
+      width: 160px;
+      animation: popUp 0.5s;
+    }
+
+    /* makes each card grow in when it appears */
+    @keyframes popUp {
+      from { transform: scale(0); }
+      to { transform: scale(1); }
+    }
+
+    #timer {
+      font-size: 40px;
+      margin: 10px;
+    }
+
+    #recipeInfo {
+      font-style: italic;
+      color: #555;
+    }
+
+    #customBox {
+      display: none;
+      border: 2px dashed gray;
+      padding: 10px;
+      margin: 10px auto;
+      max-width: 600px;
+    }
+
+    #customBox label {
+      display: inline-block;
+      margin: 5px 10px;
+    }
+
+    textarea {
+      width: 80%;
+      height: 200px;
+      font-size: 18px;
+      padding: 10px;
+    }
+
+    button, select {
+      font-size: 18px;
+      padding: 10px 20px;
+      margin: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Chopped for Writers</h1>
+  <p>Pick a course, then click the basket to get your ingredients. Try to use all of them in your story!</p>
+
+  <!-- the menu: course + difficulty -->
+  <label>Course:
+    <select id="course" onchange="settingsChanged()">
+      <option value="entree">Entrée</option>
+      <option value="dessert">Dessert</option>
+      <option value="custom">Custom</option>
+    </select>
+  </label>
+
+  <label id="levelLabel">Difficulty:
+    <select id="level" onchange="settingsChanged()">
+      <option value="easy">Easy</option>
+      <option value="medium" selected>Medium</option>
+      <option value="hard">Hard</option>
+    </select>
+  </label>
+
+  <!-- only shows up when Custom is picked -->
+  <div id="customBox">
+    <p><b>Pick your ingredients:</b></p>
+    <label><input type="checkbox" class="pick" value="Genre" onchange="settingsChanged()"> Genre</label>
+    <label><input type="checkbox" class="pick" value="Character" checked onchange="settingsChanged()"> Character</label>
+    <label><input type="checkbox" class="pick" value="Setting" checked onchange="settingsChanged()"> Setting</label>
+    <label><input type="checkbox" class="pick" value="Problem" onchange="settingsChanged()"> Problem</label>
+    <label><input type="checkbox" class="pick" value="Object" checked onchange="settingsChanged()"> Object</label>
+    <label><input type="checkbox" class="pick" value="Wild Card" onchange="settingsChanged()"> Wild Card</label>
+    <label><input type="checkbox" class="pick" value="Twist" onchange="settingsChanged()"> Twist</label>
+    <label><input type="checkbox" class="pick" value="Rule" onchange="settingsChanged()"> Rule</label>
+    <label><input type="checkbox" class="pick" value="Ending" onchange="settingsChanged()"> Ending</label>
+    <p>
+      <label>Minutes (0 = no timer):
+        <input type="number" id="customMinutes" value="15" min="0" max="60" onchange="settingsChanged()">
+      </label>
+    </p>
+  </div>
+
+  <p id="recipeInfo"></p>
+
+  <div id="basket" onclick="openBasket()">🧺</div>
+  <p id="counter">Basket 0 of 40</p>
+
+  <div id="ingredients"></div>
+
+  <div id="timer">20:00</div>
+  <button id="pauseButton" onclick="pauseTimer()">Pause</button>
+
+  <br>
+  <textarea id="story" placeholder="Write your story here..."></textarea>
+  <br>
+  <button onclick="newBasket()">New Basket</button>
+
+  <script>
+    // ================= THE PANTRY =================
+    // My ingredient lists. Add or remove anything you want!
+
+    let genres = ["mystery", "romance", "horror", "sci-fi", "fairy tale", "western", "comedy", "heist",
+      "ghost story", "coming-of-age", "noir", "fable", "thriller", "magical realism", "adventure", "tragedy"];
+
+    let characters = ["a retired lighthouse keeper", "a teenager who lies a lot", "a ghost who is bad at haunting",
+      "a wedding photographer", "a very small dog with big opinions", "a night-shift pharmacist",
+      "a substitute teacher on their first day", "twin sisters who stopped speaking", "a magician who lost their touch",
+      "an astronaut's mother", "a bakery owner going broke", "a translator at a peace summit",
+      "a mail carrier who reads the postcards", "a nervous best man", "a grandmother who used to be a spy",
+      "a kid who runs a lemonade empire", "a famous chef who can't taste anymore", "a museum night guard",
+      "a robot learning to lie", "a bride who just left her own wedding", "a detective on their last day of work",
+      "a florist who hates flowers", "an ice cream truck driver", "a lifeguard who can't swim",
+      "a witch who runs a laundromat", "a taxi driver who knows everyone's secrets", "a librarian with a secret past",
+      "a pop star in disguise", "an exhausted new dad", "a dentist who wants to be a poet",
+      "a con artist with a conscience", "a teenage chess champion", "a scientist whose experiment worked too well",
+      "a dog walker with eleven dogs", "an influencer whose phone just died", "a farmer who found something in the field",
+      "a hotel concierge", "a comedian who isn't funny", "a king who doesn't want the job", "a twelve-year-old ghost hunter"];
+
+    let settings = ["a laundromat at 3am", "the last train of the night", "a grandmother's kitchen",
+      "a karaoke bar on a Tuesday", "a closed-down mall", "a wedding in a heatwave", "a desert motel pool",
+      "a ferry stuck in fog", "a furniture store after closing", "a rooftop during a blackout",
+      "a waiting room with no clock", "a hospital vending machine corner", "a school bus on a field trip",
+      "a lighthouse in a storm", "a 24-hour diner", "a space station's kitchen", "a broken elevator",
+      "a haunted bowling alley", "a lost-and-found office", "a cooking show set", "a small-town talent show",
+      "an airport during a snowstorm", "a moving truck", "a museum after dark", "a funeral with an open bar",
+      "a cabin with no phone signal", "a palace basement", "a Ferris wheel stuck at the top", "a pet shop",
+      "a frozen lake", "a recording studio", "a bookstore that's closing for good", "a train station in a tiny town",
+      "a cruise ship buffet", "a parking lot at sunrise", "a greenhouse", "a high school reunion", "a submarine",
+      "a night market", "a hotel room with a view of the sea"];
+
+    let problems = ["something important has gone missing", "someone is wrongly accused", "a secret is about to come out",
+      "they have to say goodbye", "they made a promise they can't keep", "they're stuck and can't leave",
+      "a rival shows up", "the plan goes completely wrong", "they get a message from the past",
+      "they have to lie to protect someone", "someone they love is lying to them", "they win something they didn't want",
+      "they have to choose between two people", "they're running out of time", "they wake up somewhere they don't recognize",
+      "an old friend asks for a big favor", "someone has been pretending to be them", "a storm traps everyone inside",
+      "the money is gone", "a stranger knows their name", "they broke something that can't be replaced",
+      "they have to apologize to someone they can't stand", "nobody believes them", "they're the only one who remembers",
+      "a door that was always locked is open", "the power goes out", "they lost the ring", "they got the wrong package",
+      "they have one night to fix it", "someone is following them", "they called someone by the wrong name",
+      "they can't remember last night", "they have to keep a secret for one more hour", "they have to pass a test",
+      "they have to make someone laugh"];
+
+    let objects = ["a broken umbrella", "an unsigned letter", "a lottery ticket", "a single earring",
+      "a cake with the wrong name on it", "a jar of buttons", "a voicemail never deleted", "a borrowed coat",
+      "a cassette with no label", "a houseplant that won't die", "a wrong-number text", "a map with one X",
+      "a key that fits nothing", "a photo of strangers", "a ring in a cereal box", "a pair of muddy boots",
+      "a fortune cookie fortune", "a stopped watch", "a snow globe", "a birthday candle",
+      "a recipe card in someone else's handwriting", "a library book ten years overdue", "a rubber duck",
+      "a locked diary", "a paper crown", "a bag of oranges", "a hotel key card", "a jar of honey",
+      "a matchbook from a closed restaurant", "a toy robot", "a love letter with a coffee stain", "a single glove",
+      "a postcard from nowhere", "a broken compass", "a bouquet of dead flowers", "a seashell", "a lucky coin",
+      "a VHS tape", "a feather", "a disposable camera"];
+
+    // random details that don't belong (this makes stories weirder and better)
+    let wildCards = ["it's someone's birthday", "a song is stuck in someone's head", "it won't stop raining",
+      "there's a goat nearby", "everyone is wearing the wrong shoes", "the lights keep flickering",
+      "a phone keeps ringing and no one answers", "someone is peeling an orange", "it smells like burnt toast",
+      "a parade goes by", "a cat keeps following the main character", "someone is learning to whistle",
+      "all the clocks are wrong", "it's the hottest day of the year", "someone is wearing a costume",
+      "a balloon is stuck on the ceiling", "the radio only plays one song", "there's glitter everywhere",
+      "the elevator music never stops", "someone sneezes at the worst moment", "a bird got inside",
+      "it's the first snow of the year", "someone has the hiccups", "there's a full moon", "someone just got a haircut"];
+
+    let twists = ["the narrator has been lying", "it all happened years ago", "the villain was trying to help",
+      "it was a test the whole time", "they've done this before", "the letter was never meant for them",
+      "the stranger is family", "it was only a rehearsal", "nothing was stolen, it was given away",
+      "they get what they wanted and regret it", "the other person knew all along", "the quiet character saves the day",
+      "they were the one being watched", "the dream was real", "the helper caused the whole problem",
+      "the main character is not human", "it's happening in two places at once", "the ending is where it started",
+      "the enemy becomes the best friend", "it was a misunderstanding the whole time"];
+
+    // writing rules, some inspired by the Oulipo (French writers who wrote with strict rules)
+    let rules = ["no dialogue", "only dialogue", "write it as a recipe", "every sentence under 10 words",
+      "tell it in second person (\"you\")", "start with the ending", "write it as a list",
+      "write it as a text conversation", "write it as a letter", "present tense only",
+      "use all five senses", "no adjectives", "exactly 100 words", "the weather has to change",
+      "end with a question", "tell it backwards", "each sentence is one word longer than the last",
+      "include a word in another language", "the first and last lines are the same",
+      "don't use the word \"the\"", "write it as a menu", "someone has to apologize",
+      "a sound interrupts every paragraph", "start every paragraph with the same word",
+      "the last sentence has to be one word"];
+
+    // ending types (like the ones story planning tools use)
+    let endings = ["a happy ending", "a bittersweet ending", "a sad ending", "an open ending",
+      "a twist ending", "an ending where nobody wins", "an ending that echoes the first line",
+      "an ending with an almost-kiss", "an ending where someone leaves", "an ending at sunrise",
+      "an ending where the secret stays secret", "an ending that's one word long", "an ending at a dinner table",
+      "an ending with a goodbye that isn't really goodbye", "an ending where the object is gone"];
+
+    // connects each ingredient name to its list
+    let pantry = {
+      "Genre": genres,
+      "Character": characters,
+      "Setting": settings,
+      "Problem": problems,
+      "Object": objects,
+      "Wild Card": wildCards,
+      "Twist": twists,
+      "Rule": rules,
+      "Ending": endings
+    };
+
+    // ================= GAME VARIABLES =================
+    let recipe = [];       // which ingredients go in the basket
+    let minutes = 20;      // how long the timer is
+    let timeLeft = 0;      // in seconds
+    let countdown;
+    let basketOpened = false;
+    let paused = false;
+    let basketCount = 0;   // how many baskets have been opened
+    let usedBaskets = [];  // every basket so far, so we never repeat one
+
+    // picks one random thing from a list
+    function pickRandom(list) {
+      let number = Math.floor(Math.random() * list.length);
+      return list[number];
+    }
+
+    // ================= THE MENU =================
+    // decides the ingredients and time based on the course + difficulty
+    function updateRecipe() {
+      let course = document.getElementById("course").value;
+      let level = document.getElementById("level").value;
+      let info = "";
+
+      if (course == "custom") {
+        // show the custom box and hide difficulty
+        document.getElementById("customBox").style.display = "block";
+        document.getElementById("levelLabel").style.display = "none";
+
+        // add every box that's checked
+        recipe = [];
+        let boxes = document.getElementsByClassName("pick");
+        for (let i = 0; i < boxes.length; i++) {
+          if (boxes[i].checked) {
+            recipe.push(boxes[i].value);
+          }
+        }
+        minutes = Number(document.getElementById("customMinutes").value);
+        info = "Your own recipe.";
+      } else {
+        document.getElementById("customBox").style.display = "none";
+        document.getElementById("levelLabel").style.display = "inline";
+      }
+
+      // ENTRÉE: the main course, a full scene
+      if (course == "entree") {
+        info = "The main course: write a full scene.";
+        if (level == "easy") {
+          minutes = 25;
+          recipe = ["Character", "Setting", "Problem"];
+        } else if (level == "medium") {
+          minutes = 20;
+          recipe = ["Genre", "Character", "Setting", "Problem", "Object"];
+        } else {
+          minutes = 15;
+          recipe = ["Genre", "Character", "Setting", "Problem", "Object", "Rule", "Twist"];
+        }
+      }
+
+      // DESSERT: something short and sweet that lands an ending
+      if (course == "dessert") {
+        info = "Something short and sweet: a tiny story that lands its ending.";
+        if (level == "easy") {
+          minutes = 10;
+          recipe = ["Character", "Object", "Ending"];
+        } else if (level == "medium") {
+          minutes = 8;
+          recipe = ["Character", "Object", "Wild Card", "Ending"];
+        } else {
+          minutes = 5;
+          recipe = ["Character", "Object", "Wild Card", "Rule", "Ending"];
+        }
+      }
+
+      let timeText = minutes + " minutes";
+      if (minutes == 0) {
+        timeText = "no timer";
+      }
+      document.getElementById("recipeInfo").innerHTML = info + " " + recipe.length + " ingredients, " + timeText + ".";
+    }
+
+    // ================= THE BASKET =================
+    function makeBasket() {
+      let basket = [];
+      for (let i = 0; i < recipe.length; i++) {
+        let name = recipe[i];
+        basket.push(name + ": " + pickRandom(pantry[name]));
+      }
+      return basket;
+    }
+
+    function openBasket() {
+      // if the basket is already open, do nothing
+      if (basketOpened == true) {
+        return;
+      }
+
+      // stop after 40 baskets
+      if (basketCount >= 40) {
+        document.getElementById("ingredients").innerHTML = "<p>That's 40 baskets! Refresh the page to start a new service.</p>";
+        return;
+      }
+
+      if (recipe.length == 0) {
+        document.getElementById("ingredients").innerHTML = "<p>Pick at least one ingredient!</p>";
+        return;
+      }
+
+      // keep making baskets until we get one we haven't seen before
+      let basket = makeBasket();
+      let tries = 0;
+      while (usedBaskets.includes(basket.join("|")) && tries < 500) {
+        basket = makeBasket();
+        tries = tries + 1;
+      }
+
+      // this only happens if custom has very few ingredients picked
+      if (usedBaskets.includes(basket.join("|"))) {
+        document.getElementById("ingredients").innerHTML = "<p>No new baskets left with just these ingredients. Add another one!</p>";
+        return;
+      }
+
+      // remember this basket so it never comes back
+      usedBaskets.push(basket.join("|"));
+      basketCount = basketCount + 1;
+      basketOpened = true;
+      document.getElementById("counter").innerHTML = "Basket " + basketCount + " of 40";
+
+      // show the cards on the page
+      let html = "";
+      for (let i = 0; i < basket.length; i++) {
+        let parts = basket[i].split(": ");
+        html = html + "<div class='ingredient'><b>" + parts[0] + "</b><br>" + parts[1] + "</div>";
+      }
+      document.getElementById("ingredients").innerHTML = html;
+
+      // only start the timer if it isn't turned off
+      if (minutes > 0) {
+        startTimer();
+      }
+    }
+
+    // runs when you change the course, difficulty, or custom options
+    function settingsChanged() {
+      updateRecipe();
+      basketOpened = false;
+      document.getElementById("ingredients").innerHTML = "";
+      resetTimer();
+    }
+
+    // same as above, but also clears your story
+    function newBasket() {
+      settingsChanged();
+      document.getElementById("story").value = "";
+    }
+
+    // ================= THE TIMER =================
+    // stops the timer and sets it back to the chosen time
+    function resetTimer() {
+      clearInterval(countdown);
+      paused = false;
+      timeLeft = minutes * 60;
+      document.getElementById("pauseButton").innerHTML = "Pause";
+      document.getElementById("story").disabled = false;
+
+      if (minutes == 0) {
+        document.getElementById("timer").innerHTML = "No timer";
+        document.getElementById("pauseButton").style.display = "none";
+      } else {
+        document.getElementById("timer").innerHTML = minutes + ":00";
+        document.getElementById("pauseButton").style.display = "inline-block";
+      }
+    }
+
+    function startTimer() {
+      clearInterval(countdown);
+      countdown = setInterval(tick, 1000);
+    }
+
+    // runs once every second
+    function tick() {
+      timeLeft = timeLeft - 1;
+
+      let mins = Math.floor(timeLeft / 60);
+      let secs = timeLeft % 60;
+      if (secs < 10) {
+        secs = "0" + secs;
+      }
+      document.getElementById("timer").innerHTML = mins + ":" + secs;
+
+      if (timeLeft <= 0) {
+        clearInterval(countdown);
+        document.getElementById("timer").innerHTML = "Time's up!";
+        document.getElementById("story").disabled = true;
+      }
+    }
+
+    function pauseTimer() {
+      // the timer only runs once the basket is open and there's time left
+      if (basketOpened == false || timeLeft <= 0) {
+        return;
+      }
+
+      if (paused == false) {
+        clearInterval(countdown);
+        paused = true;
+        document.getElementById("pauseButton").innerHTML = "Resume";
+      } else {
+        startTimer();
+        paused = false;
+        document.getElementById("pauseButton").innerHTML = "Pause";
+      }
+    }
+
+    // set everything up when the page first loads
+    settingsChanged();
+  </script>
+
+</body>
+</html>
