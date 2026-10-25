@@ -114,7 +114,6 @@
   <p id="recipeInfo"></p>
 
   <div id="basket" onclick="openBasket()">🧺</div>
-  <p id="counter">Basket 0 of 40</p>
 
   <div id="ingredients"></div>
 
@@ -357,7 +356,6 @@
       usedBaskets.push(basket.join("|"));
       basketCount = basketCount + 1;
       basketOpened = true;
-      document.getElementById("counter").innerHTML = "Basket " + basketCount + " of 40";
 
       // show the cards on the page
       let html = "";
